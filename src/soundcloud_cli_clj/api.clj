@@ -5,8 +5,6 @@
 
 (def base-url "https://api.soundcloud.com")
 
-(def base-url-v2 "https://api-v2.soundcloud.com")
-
 (defn get-token
   [c-id c-sec uname pass]
   (try
@@ -21,7 +19,8 @@
         :body
         :access_token)
     (catch Exception ex
-      (error ex "Error during getting token"))))
+      (error ex "Error during getting token")
+      "")))
 
 (defn get-user
   [c-id u-id]
@@ -30,7 +29,8 @@
                        {:query-params {:client_id c-id}
                         :as :json}))
     (catch Exception ex
-      (error ex (str "Error during getting user: uid " u-id)))))
+      (error ex (str "Error during getting user: uid " u-id))
+      {})))
 
 (defn get-stream
   [token & offset]
@@ -39,4 +39,5 @@
                 {:query-params {:oauth_token token}
                  :as :json}))
     (catch Exception ex
-      (error ex "Error during getting stream"))))
+      (error ex "Error during getting stream")
+      {})))
