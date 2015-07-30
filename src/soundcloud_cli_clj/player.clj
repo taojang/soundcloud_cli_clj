@@ -1,8 +1,8 @@
 (ns soundcloud-cli-clj.player
-  (:import (java.io Reader
-                    Writer)
-           (java.lang Process
-                      ProcessBuilder))
+  (:import [java.io Reader
+                    Writer]
+           [java.lang Process
+                      ProcessBuilder])
   (:require [clojure.java.io :refer [reader writer]]))
 
 (defprotocol IPlayer

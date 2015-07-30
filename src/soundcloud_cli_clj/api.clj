@@ -32,8 +32,8 @@
       (error ex (str "Error during getting user: uid " u-id))
       {})))
 
-(defn get-stream
-  [token & offset]
+(defn get-my-stream
+  [token]
   (try
     (:body (client/get (str base-url "/me/activities/tracks/affiliated")
                 {:query-params {:oauth_token token}

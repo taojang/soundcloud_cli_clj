@@ -8,7 +8,7 @@
                  [com.taoensso/timbre "4.0.2"]
                  [clj-http "2.0.0"]
                  [cheshire "5.5.0"]
-                 [me.raynes/conch "0.8.0"]]
+                 [jline    "2.12"]]
   :main ^:skip-aot soundcloud-cli-clj.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

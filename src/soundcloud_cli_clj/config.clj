@@ -22,7 +22,7 @@
         (slurp)
         (edn/read-string))
     (catch Exception ex
-      (error (str "Error while loading config: " (.getMessage ex)))
+      (error ex (str "Error while loading config: " (.getMessage ex)))
       default-config)))
 
 (defn save-config!
@@ -35,5 +35,5 @@
       (spit path conf)
       true
       (catch Exception ex
-        (error (str "Error while saving config: " (.getMessage ex)))
+        (error ex (str "Error while saving config: " (.getMessage ex)))
         false))))
