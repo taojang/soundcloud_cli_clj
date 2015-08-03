@@ -5,8 +5,6 @@
             [soundcloud-cli-clj.api :as api]
             [soundcloud-cli-clj.player :as player]))
 
-(def curr-state (atom {}))
-
 (def command-list
   #{:help :login :play-stream :play :next :prev :pause :stop :current})
 
@@ -37,8 +35,8 @@
     (config/save-config! (assoc orig-conf :oauth-token token))))
 
 (defn play-stream!
-  [plyer]
-  (let [conf (config/load-config)]
+  [state]
+  (let [conf (:config @state)]
     (do
       (println "loading stream...")
       ; TODO track current state, play next automatically
@@ -51,34 +49,35 @@
                              (api/create-stream-url (:client-id conf)))]
           (do
             (println stream-url)
-            (player/play-url plyer stream-url))))
+            (player/play-url (:player @state) stream-url))))
       (println "I don't do a lot..."))))
 
-(defn- clean-up
-  [plyer]
+(defn clean-up!
+  [state]
   (do
     (println "Shutting down mplayer")
-    (-> plyer
+    (-> @state
+        (:player)
         (:process)
         (.destroy))))
 
 (defn start!
-  [plyer]
+  [state]
   (let [cr            (ConsoleReader.)
         cmd-completer (StringsCompleter. (map name command-list))]
     (do
       (.addShutdownHook (Runtime/getRuntime)
-                        (Thread. (fn [] (clean-up plyer))))
+                        (Thread. (fn [] (clean-up! state))))
       (.addCompleter cr cmd-completer)
       (.setPrompt cr "sc-cmd=> "))
     ;; TODO: core.async
     (loop [l  (.readLine cr)]
       (condp = (cmd-from-str l)
         :login       (login!)
-        :play-stream (play-stream! plyer)
-        :pause       (player/toggle-pause plyer)
-        :stop        (player/stop plyer)
+        :play-stream (play-stream! state)
+        :pause       (player/toggle-pause (:player @state))
+        :stop        (player/stop (:player @state))
         nil          (do (println "\nC-d pressed, bye for now")
                          (System/exit 0))
-        :default     (println "unkown command"))
+        (println "unkown command"))
       (recur (.readLine cr)))))

@@ -3,7 +3,8 @@
                     Writer]
            [java.lang Process
                       ProcessBuilder])
-  (:require [clojure.java.io :refer [reader writer]])
+  (:require [clojure.java.io :refer [reader writer]]
+            [clojure.core.async :as async :refer [chan go go-loop sliding-buffer >!]])
   (:gen-class))
 
 (defprotocol IPlayer
@@ -15,7 +16,7 @@
   (position-length [this] "return the current position in seconds")
   (length [this] "return the length of song in seconds"))
 
-(defrecord Player [^Reader stdout ^Writer stdin ^Reader stderr ^Process process]
+(defrecord Player [^Reader stdout ^Writer stdin ^Reader stderr ^Process process stdout-chan]
   IPlayer
   (play-url [this url]
     (.write stdin (str "loadfile " "\"" url "\"" "\n"))
@@ -41,7 +42,7 @@
   []
   (let [process (-> (ProcessBuilder. ["mplayer" "-quiet" "-slave" "-idle"])
                     (.start))]
-    (map->Player {:stdout (-> process
+    (let [mp-map {:stdout (-> process
                               (.getInputStream)
                               (reader))
                   :stdin (-> process
@@ -50,4 +51,10 @@
                   :stderr (-> process
                               (.getErrorStream)
                               (reader))
-                  :process process})))
+                  :process process}
+          stdout-chan (chan (sliding-buffer 1))]
+      (go-loop [line (.readLine (:stdout mp-map))]
+        (>! stdout-chan line)
+        (println line)
+        (recur (.readLine (:stdout mp-map))))
+      (map->Player (assoc mp-map :stdout-chan stdout-chan)))))
