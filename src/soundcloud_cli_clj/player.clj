@@ -3,7 +3,8 @@
                     Writer]
            [java.lang Process
                       ProcessBuilder])
-  (:require [clojure.java.io :refer [reader writer]]))
+  (:require [clojure.java.io :refer [reader writer]])
+  (:gen-class))
 
 (defprotocol IPlayer
   (play-url [this url] "play url")
@@ -17,7 +18,7 @@
 (defrecord Player [^Reader stdout ^Writer stdin ^Reader stderr ^Process process]
   IPlayer
   (play-url [this url]
-    (.write stdin (str "loadfile " url "\n"))
+    (.write stdin (str "loadfile " "\"" url "\"" "\n"))
     (.flush stdin)
     this)
   (toggle-pause [this]

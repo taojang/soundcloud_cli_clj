@@ -41,3 +41,7 @@
     (catch Exception ex
       (error ex "Error during getting stream")
       {})))
+
+(defn create-stream-url
+  [url c-id]
+  (str url "?client_id=" c-id))
