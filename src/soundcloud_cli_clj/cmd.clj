@@ -3,13 +3,15 @@
            [jline.console.completer StringsCompleter])
   (:require [soundcloud-cli-clj.config :as config]
             [soundcloud-cli-clj.api :as api]
-            [soundcloud-cli-clj.player :as player]))
+            [soundcloud-cli-clj.player :as player]
+            [clojure.core.async :as async :refer [go-loop <! >! filter<]]))
 
 (def command-list
   #{:help :login :play-stream :play :next :prev :pause :stop :current})
 
 (defn cmd-from-str
   [s]
+  ; TODO: handle empty string
   (when s
     (-> s
         (clojure.string/trimr)
@@ -21,41 +23,61 @@
     (.readLine cr promt-str \*)))
 
 (defn login!
-  []
+  [state]
   (let [cr         (ConsoleReader.)
         uname      (do
                      (.setPrompt cr "user name: ")
                      (.readLine cr))
         pass       (read-pass "password: ")
-        orig-conf  (config/load-config)
+        orig-conf  (:config @state)
         token      (api/get-token (:client-id orig-conf)
                                   (:client-secret orig-conf)
                                   uname
-                                  pass)]
-    (config/save-config! (assoc orig-conf :oauth-token token))))
+                                  pass)
+        new-conf  (assoc orig-conf :oauth-token token)]
+    (do
+      (send state assoc :config new-conf)
+      (config/save-config! new-conf))))
 
 (defn play-stream!
   [state]
-  (let [conf (:config @state)]
+  (let [conf     (:config @state)
+        ; TODO: shutdown chan
+        eof-chan (filter< player/is-eof
+                          (-> @state
+                              (:player)
+                              (:stdout-chan)))]
     (do
       (println "loading stream...")
       ; TODO track current state, play next automatically
-      (when-let [stream (-> (api/get-my-stream (:oauth-token conf))
-                            (:collection)
-                            (first))]
-        (let [stream-url (-> stream
-                             (:origin)
-                             (:stream_url)
-                             (api/create-stream-url (:client-id conf)))]
+      (when-let [stream (api/get-my-stream (:oauth-token conf))]
+        (let [init-track  (-> stream
+                              (:collection)
+                              ((fn [coll]
+                                 (sort-by (comp :duration :origin) coll)))
+                              (first))]
           (do
-            (println stream-url)
-            (player/play-url (:player @state) stream-url))))
+            (send state assoc :stream stream)
+            (println init-track)
+            (go-loop [track init-track]
+              (let [track-url (-> track
+                                  (:origin)
+                                  (:stream_url)
+                                  (api/create-stream-url (:client-id conf)))]
+                (println track)
+                (player/play-url (:player @state) track-url)
+                (<! eof-chan)
+                (recur (api/get-next-stream-track (:stream @state) track)))))))
       (println "I don't do a lot..."))))
 
 (defn clean-up!
   [state]
   (do
     (println "Shutting down mplayer")
+    (-> @state
+        (:player)
+        (:stdout-chan)
+        (async/close!))
     (-> @state
         (:player)
         (:process)
@@ -73,7 +95,7 @@
     ;; TODO: core.async
     (loop [l  (.readLine cr)]
       (condp = (cmd-from-str l)
-        :login       (login!)
+        :login       (login! state)
         :play-stream (play-stream! state)
         :pause       (player/toggle-pause (:player @state))
         :stop        (player/stop (:player @state))

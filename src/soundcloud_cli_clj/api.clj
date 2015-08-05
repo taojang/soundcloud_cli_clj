@@ -42,6 +42,10 @@
       (error ex "Error during getting stream")
       {})))
 
+(defn get-next-stream-track
+  [stream curr]
+  (second (drop-while #(not (= % curr)) (:collection stream))))
+
 (defn create-stream-url
   [url c-id]
   (str url "?client_id=" c-id))

@@ -38,9 +38,14 @@
   (position-length [this] this)
   (length [this] this))
 
+(defn is-eof
+  [line]
+  (and (string? line)
+       (.startsWith line "EOF code:")))
+
 (defn create-player
   []
-  (let [process (-> (ProcessBuilder. ["mplayer" "-quiet" "-slave" "-idle"])
+  (let [process (-> (ProcessBuilder. ["mplayer" "-really-quiet" "-slave" "-idle" "-msglevel" "global=6"])
                     (.start))]
     (let [mp-map {:stdout (-> process
                               (.getInputStream)
@@ -55,6 +60,8 @@
           stdout-chan (chan (sliding-buffer 1))]
       (go-loop [line (.readLine (:stdout mp-map))]
         (>! stdout-chan line)
-        (println line)
+        (if (.startsWith line "EOF code: 1")
+          (println "playback ends")
+          nil)
         (recur (.readLine (:stdout mp-map))))
       (map->Player (assoc mp-map :stdout-chan stdout-chan)))))
