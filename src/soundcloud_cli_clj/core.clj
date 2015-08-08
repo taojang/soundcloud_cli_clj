@@ -1,14 +1,31 @@
 (ns soundcloud-cli-clj.core
-  (:require [soundcloud-cli-clj.cmd :as cmd]
+  (:require [com.stuartsierra.component :as component]
+            [clojure.core.async :as async]
+            [soundcloud-cli-clj.cmd :as cmd]
             [soundcloud-cli-clj.player :as player]
             [soundcloud-cli-clj.config :as conf])
   (:gen-class))
 
-(def curr-state (agent {}))
+(def system
+  (component/system-map
+   :sys-chan (async/chan)
+   :config (conf/load-config)
+   :player (player/create-player)
+   :cmd (component/using
+         (cmd/new-cmd)
+         [:player :config :sys-chan])))
+
+(defn wait!
+  []
+  (let [s (java.util.concurrent.Semaphore. 0)]
+    (.acquire s)))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (cmd/start! (do
-                (send curr-state assoc :config (conf/load-config))
-                (send curr-state assoc :player (player/create-player)))))
+  (do
+    (.addShutdownHook (Runtime/getRuntime)
+                      (Thread. (fn [] (component/stop-system system)))))
+  (component/start-system system)
+  (wait!))
+
